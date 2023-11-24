@@ -6,12 +6,13 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-contrib/sessions"
 	database "todolist.go/db"
 )
 
 // TaskList renders list of tasks in DB
 func TaskList(ctx *gin.Context) {
-
+	userID := sessions.Default(ctx).Get("user")
 	// Get DB connection
 	db, err := database.GetConnection()
 	if err != nil {
@@ -25,18 +26,18 @@ func TaskList(ctx *gin.Context) {
 	
 	// Get tasks in DB
 	var tasks []database.Task
-
+	query := "SELECT id, title, created_at, is_done FROM tasks INNER JOIN ownership ON tasks.id = id WHERE user_id = ?"
 	switch {
 		case kw != "", is_done != "":
 			if is_done == "" {
-				err = db.Select(&tasks, "SELECT * FROM tasks WHERE title LIKE ?", "%"+kw+"%")
+				err = db.Select(&tasks, query + "AND title LIKE ?", userID, "%"+kw+"%")
 			}else{
 				is_done_bool, _ := strconv.ParseBool(is_done)
-				err = db.Select(&tasks, "SELECT * FROM tasks WHERE title LIKE ? AND is_done=?", "%"+kw+"%", is_done_bool)
+				err = db.Select(&tasks, query + "AND title LIKE ? AND is_done=?", userID, "%"+kw+"%", is_done_bool)
 			}
 			
 		default:
-			err = db.Select(&tasks, "SELECT * FROM tasks") // Use DB#Select for multiple entries
+			err = db.Select(&tasks, query, userID) // Use DB#Select for multiple entries
 	}
 	
 	
@@ -52,6 +53,7 @@ func TaskList(ctx *gin.Context) {
 
 // ShowTask renders a task with given ID
 func ShowTask(ctx *gin.Context) {
+	
 	// Get DB connection
 	db, err := database.GetConnection()
 	if err != nil {
@@ -84,6 +86,7 @@ func NewTaskForm(ctx *gin.Context) {
 }
 
 func RegisterTask(ctx *gin.Context) {
+	userID := sessions.Default(ctx).Get("user")
 	// Get task title
 	title, exist := ctx.GetPostForm("title")
 	if !exist {
@@ -97,13 +100,35 @@ func RegisterTask(ctx *gin.Context) {
 		Error(http.StatusInternalServerError, err.Error())(ctx)
 		return
 	}
-
-	// Create new data with given title on DB
-	result, err := db.Exec("INSERT INTO tasks (title) VALUES (?)", title)
+	tx := db.MustBegin()
+	result, err := tx.Exec("INSERT INTO tasks (title) VALUES (?)", title)
+	fmt.Println("default insert")
 	if err != nil {
+		tx.Rollback()
 		Error(http.StatusInternalServerError, err.Error())(ctx)
 		return
 	}
+	taskID, err := result.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		Error(http.StatusInternalServerError, err.Error())(ctx)
+		return
+	}
+	_, err = tx.Exec("INSERT INTO ownership (user_id, task_id) VALUES (?, ?)", userID, taskID)
+	if err != nil {
+		tx.Rollback()
+		Error(http.StatusInternalServerError, err.Error())(ctx)
+		return
+	}
+	tx.Commit()
+
+
+	// // Create new data with given title on DB
+	// result, err := db.Exec("INSERT INTO tasks (title) VALUES (?)", title)
+	// if err != nil {
+	// 	Error(http.StatusInternalServerError, err.Error())(ctx)
+	// 	return
+	// }
 
 
 	// Render status
