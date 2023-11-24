@@ -47,18 +47,18 @@ func main() {
 	taskGroup := engine.Group("/task")
 	taskGroup.Use(service.LoginCheck)
 	{
-	engine.GET("/:id", service.ShowTask) // ":id" is a parameter
+	taskGroup.GET("/:id", service.ShowTask) // ":id" is a parameter
 
 	//タスクの新規登録
-	engine.GET("/new", service.NewTaskForm)
-	engine.POST("/new", service.RegisterTask)
+	taskGroup.GET("/new", service.NewTaskForm)
+	taskGroup.POST("/new", service.RegisterTask)
 
 	//タスクの編集
-	engine.GET("/edit/:id", service.EditTaskForm)
-	engine.POST("/edit/:id", service.RegisterEditedTask)
+	taskGroup.GET("/edit/:id", service.EditTaskForm)
+	taskGroup.POST("/edit/:id", service.RegisterEditedTask)
 
 	//タスクの削除
-	engine.GET("/delete/:id", service.DeleteTask)
+	taskGroup.GET("/delete/:id", service.DeleteTask)
 
 	}
 
@@ -69,6 +69,9 @@ func main() {
 	//ログイン
 	engine.GET("/login", service.LoginForm)
 	engine.POST("/login", service.Login)
+
+	//ログアウト
+	engine.GET("/logout", service.Logout)
 
 	// start server
 	engine.Run(fmt.Sprintf(":%d", port))

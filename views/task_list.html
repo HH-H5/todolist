@@ -1,6 +1,7 @@
 {{ template "header" . }}
 <h1>List of tasks</h1>
 <a href="/index">ホーム</a>
+<a href="/logout">ログアウト</a>
 <form action="/list" method="GET">
     <input type="text" name="kw" value="{{ .Kw }}">
     <input type="radio" name="is_done" value="t" {{ if .IsDone }}checked{{ end }}><label>完了</label>
